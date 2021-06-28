@@ -1,0 +1,416 @@
+(function() {
+
+    /* Load Script function we may need to load jQuery from the Google's CDN */
+    /* That code is world-reknown. */
+    /* One source: http://snipplr.com/view/18756/loadscript/ */
+
+    var loadScript = function(url, callback) {
+
+        var script = document.createElement("script");
+        script.type = "text/javascript";
+
+        // If the browser is Internet Explorer.
+        if (script.readyState) {
+            script.onreadystatechange = function() {
+                if (script.readyState == "loaded" || script.readyState == "complete") {
+                    script.onreadystatechange = null;
+                    callback();
+                }
+            };
+            // For any other browser.
+        } else {
+            script.onload = function() {
+                callback();
+            };
+        }
+
+        script.src = url;
+        document.getElementsByTagName("head")[0].appendChild(script);
+
+    };
+
+    /* This is my app's JavaScript */
+    var myAppJavaScript = function($) {
+
+        $(document).ready(function() {
+
+            var shopify_infos = window.Shopify;
+            var shopify_store = shopify_infos.shop;
+
+            // Check if we are on the order_confirmation page
+            if(shopify_infos && shopify_infos.Checkout && (shopify_infos.Checkout.isOrderStatusPage || (shopify_infos.Checkout.page && shopify_infos.Checkout.page == "thank_you"))) {
+
+                var order_id = "-";
+                var order_name = "-";
+
+                if(shopify_infos.checkout && shopify_infos.checkout.order_id) {
+                    order_id = shopify_infos.checkout.order_id;
+                } 
+                // Sometimes we don't have access to the checkout object or order_id directly... Let's find the order name
+                else { 
+
+                    if($(".os-order-number").length) {
+
+                        var order_name_container = $.trim($(".os-order-number").html());
+                        var order_txt_array = order_name_container.split(" ");
+                        var order_name = order_txt_array.pop();
+
+                        order_name = order_name.replace("#",'');
+
+                    }
+
+                }
+
+                // Add the loading spinner CSS
+                $("<style>")
+                .prop("type", "text/css")
+                .html("\
+                .lds-dual-ring {\
+                    display: inline-block;\
+                    width: 80px;\
+                    height: 80px;\
+                    left: 50%;\
+                    transform: translate(-50%, 0);\
+                    position: absolute;\
+                    top: 15%;\
+                }\
+                .lds-dual-ring:after {\
+                    content: ' ';\
+                    display: block;\
+                    width: 64px;\
+                    height: 64px;\
+                    margin: 8px;\
+                    border-radius: 50%;\
+                    border: 6px solid #545454;\
+                    border-color: #545454 transparent #545454 transparent;\
+                    animation: lds-dual-ring 1.2s linear infinite;\
+                }\
+                @keyframes lds-dual-ring {\
+                    0% {\
+                      transform: rotate(0deg);\
+                    }\
+                    100% {\
+                      transform: rotate(360deg);\
+                    }\
+                }")
+                .appendTo("head");
+
+                $(".sidebar").prepend("<div style='height: 100%; position: absolute; top: 0; bottom: 0; left: 0px; right: -20px; z-index: 9999; background: rgba(255,255,255,0.7);display:none;' class='edp_loading_state'><div class='lds-dual-ring'></div></div>");
+                $(".edp_loading_state").fadeIn();
+
+                // Check if we have a download for this order
+                $.ajax({
+                    url: "/apps/edigital-products/get_download/" + order_id + "/" + order_name,
+                    type: "GET",
+                    success: function(data)
+                    {
+
+                        $(".edp_loading_state").fadeOut();
+
+                        if(data.order_not_found) {
+
+                            $(".order-summary__section__content").append("<div style='font-size: 10px; line-height: 1.3; padding-top: 4px; padding-bottom: 3px; text-align: center; font-weight: 500; background-color: #FEAF9A; color: #330101; padding-left: 6px; padding-right: 6px; border-radius: 4px; text-transform: uppercase; vertical-align: 1px;'>Your downloads will be ready soon. Please refresh this page in a few seconds to see your download links.</div>");
+
+                        } else if(data.has_download) {
+
+                            if(data.has_download == 1) {
+
+                                // Redesign the products list
+                                $.each($("tr.product"), function(p_i, product_line_p) {
+
+                                    if(p_i < $("tr.product").length-1) {
+                                        $(product_line_p).after("<tr><td colspan='6' style=''><div style='border-top: 1px solid rgba(175,175,175,0.34); margin-top: 18px; margin-bottom: 10px;'></div></td></tr>");
+                                    }
+
+                                });
+
+                                // Set the style for the "scroll button" that can cause the download buttons to be disabled
+                                $("<style>")
+                                .prop("type", "text/css")
+                                .html("\
+                                .order-summary__section--has-scroll .order-summary__scroll-indicator {\
+                                    display:none;\
+                                }")
+                                .appendTo("head");
+
+                                var product_files = data.product_files;
+                                var nb_products = $("table tr.product").length;
+                                var array_variant_ids = data.array_variant_ids;
+
+                                if(data.custom_order_text != "" && data.custom_order_text != null && product_files.length > 0) {
+
+                                    var custom_order_msg = "";
+
+                                    custom_order_msg += "<div style='color: #004085; background-color: #cce5ff; border-color: #b8daff; text-align: center; position: relative; padding: .75rem 1.25rem; margin-bottom: 1rem; border: 1px solid transparent; border-radius: .25rem;'>";
+                                    custom_order_msg += data.custom_order_text;
+                                    custom_order_msg += "</div>";
+
+                                    $(".product-table").before(custom_order_msg);
+
+                                }
+
+                                $.each(product_files, function(i, product_file) {
+
+                                    var product_id = product_file.product_id;
+                                    var variant_id = product_file.variant_id;
+                                    var tr_line;
+
+                                    // If we have a product variant specified
+                                    if(variant_id != 0) {
+
+                                        tr_line = $("tr[data-product-id=" + product_id + "][data-variant-id=" + variant_id + "]");
+                                        tr_line.addClass("edp_downloadable");
+
+                                    } 
+                                    // If it's a 0 variant which means "All Variants", we need to determine the good tr line
+                                    else {
+
+                                        var product_id_tr = $("tr[data-product-id=" + product_id + "]");
+
+                                        console.log(product_id);
+                                        console.log(array_variant_ids);
+
+                                        $.each(product_id_tr, function(tr_index, tr_product_id) {
+
+                                            var tr_variant_id = $(this).attr("data-variant-id");
+
+                                            if(array_variant_ids && array_variant_ids[product_id]) {
+                                                
+                                                if(!array_variant_ids[product_id].includes(tr_variant_id)) {
+
+                                                    if(!$(tr_product_id).hasClass("edp_downloadable")) {
+
+                                                        $(tr_product_id).addClass("edp_downloadable");
+                                                        tr_line = $(tr_product_id);
+
+                                                        return false;
+
+                                                    }
+
+                                                }
+
+                                            }
+
+                                        });
+
+                                    }
+
+                                    var cur_license_key = "";
+
+                                    // The product line exists...
+                                    if(tr_line && tr_line.length) {
+
+                                        /*
+                                        if(i < product_files.length-1) {
+                                            tr_line.after("<tr><td colspan='6' style='border-top: 1px solid rgba(175,175,175,0.34);height: 11px;'></td></tr>");
+                                        }
+                                        */
+
+                                        // If we have the mobile / responsive view
+                                        if($(".order-summary-toggle").length) {
+                                            
+                                            if(!$(".order-summary-toggle").hasClass("toggle-opened")) {
+                                                
+                                                $(".order-summary-toggle").addClass("toggle-opened");
+                                                $(".order-summary-toggle").trigger("click");
+
+                                            }
+                                        }
+
+                                        $(".order-summary__section__content").css("height", "100% !important");
+                                        
+                                        if(product_file.license_key) {
+
+                                            var download_btn_style = "padding-top: 6px; font-size: 12px; padding-bottom: 6px; padding-left: 11px; padding-right: 11px; width: 100%;background: #" + data.btn_download_bg_color + " !important; color: #" + data.btn_download_text_color + " !important;";
+
+                                            if(product_file.license_key.length <= 1) {
+
+                                                var cur_license_key = product_file.license_key[0];
+
+                                                if(validURL(cur_license_key)) {
+                                                    cur_license_key = "<a target='_blank' href='" + cur_license_key + "'>" + cur_license_key + "</a>";
+                                                }
+
+                                                var license_key_line = "<tr><td style='padding-top: 5px;text-align:left;margin-bottom:10px;' colspan='6'>";
+                                                license_key_line += "<b>" + data.btn_license_text + "</b> : ";
+
+                                                if(cur_license_key == "edp_no_keys") {
+                                                    license_key_line += "<span style='font-size: 10px; min-height: 10px; line-height: 0.7; padding-top: 1px; padding-bottom: 2px; font-weight: 500; background-color: #FEAF9A; color: #330101; padding-left: 6px; padding-right: 6px; border-radius: 4px; text-transform: uppercase; vertical-align: 1px;'>Your key will be updated soon</span><br>";   
+                                                } else {
+                                                    license_key_line += cur_license_key + "<br>";  
+                                                }    
+
+                                                license_key_line += "</td></tr>";
+                                                tr_line.after(license_key_line);
+
+                                            } else {
+
+                                                var license_key_line = "<tr><td style='padding-top: 5px;text-align:left;margin-bottom:10px;' colspan='6'>";
+
+                                                // Deliver more than one key per product (multi-quantity product)
+                                                for(var q = 0; q < product_file.license_key.length; q++) {
+
+                                                    var license_id = q+1;
+                                                    var cur_license_key = product_file.license_key[q];
+
+                                                    if(validURL(cur_license_key)) {
+                                                        cur_license_key = "<a target='_blank' href='" + cur_license_key + "'>" + cur_license_key + "</a>";
+                                                    }
+
+                                                    if(cur_license_key == "edp_no_keys") {
+                                                        cur_license_key = "<span style='font-size: 10px; min-height: 10px; line-height: 0.7; padding-top: 1px; padding-bottom: 2px; font-weight: 500; background-color: #FEAF9A; color: #330101; padding-left: 6px; padding-right: 6px; border-radius: 4px; text-transform: uppercase; vertical-align: 1px;'>Your key will be updated soon</span>";
+                                                    }
+                                                    
+                                                    license_key_line += "<b>" + data.btn_license_text + " #" + license_id + "</b> : " + cur_license_key + "<br>";                                                    
+
+                                                }
+
+                                                license_key_line += "</td></tr>";
+                                                tr_line.after(license_key_line);
+
+                                            }
+                                            
+
+                                            /*
+                                            if(product_file.license_key.length <= 1) {
+
+                                                console.log("here");
+
+                                                if(i < nb_products-1) {
+                                                    tr_line.after("<tr><td style='padding-bottom: 20px;padding-top: 5px;text-align:left;' colspan='6'>License Key : <b>" + product_file.license_key + "</b></td></tr>");
+                                                } else {
+                                                    tr_line.after("<tr><td style='padding-bottom: 20px;padding-top: 5px;text-align:left;' colspan='6'>License Key : <b>" + product_file.license_key + "</b></td></tr>");
+                                                }
+
+                                            } else {
+
+                                                for(var q = 0; q < product_file.license_key.length; q++) {
+
+                                                    if(i < nb_products-1) {
+                                                        tr_line.after("<tr><td style='padding-bottom: 20px;padding-top: 5px;text-align:left;' colspan='6'>License Key " + q + " : <b>" + product_file.license_key + "</b></td></tr>");
+                                                    } else {
+                                                        tr_line.after("<tr><td style='padding-bottom: 20px;padding-top: 5px;text-align:left;' colspan='6'>License Key " + q + " : <b>" + product_file.license_key + "</b></td></tr>");
+                                                    }
+
+                                                }
+
+                                            }
+                                            */
+
+                                        } else {
+
+                                            var download_btn_style = "margin-bottom: 20px;padding-top: 6px; font-size: 12px; padding-bottom: 6px; padding-left: 11px; padding-right: 11px; width: 100%; background: #" + data.btn_download_bg_color + " !important; color: #" + data.btn_download_text_color + " !important;";
+
+                                        }
+
+                                        if(product_file.download_limit_reached) {
+
+                                            var download_disabled_btn_style = "background: #CCC;cursor: not-allowed;";
+                                         
+                                            tr_line.after("<tr><td style='padding-top: 5px;text-align:left;' colspan='6'><a class='btn' href='#' style='"+ download_btn_style +";opacity:0.5;" + download_disabled_btn_style + "'>" + data.btn_download_limit_reached_text + "</a></td></tr>");
+
+                                        } else if(product_file.download_limit_time_reached) {
+
+                                            var download_disabled_btn_style = "background: #CCC;cursor: not-allowed;";
+                                         
+                                            tr_line.after("<tr><td style='padding-top: 5px;text-align:left;' colspan='6'><a class='btn' href='#' style='"+ download_btn_style +";opacity:0.5;" + download_disabled_btn_style + "'>" + data.btn_download_limit_time_reached_text + "</a></td></tr>");
+
+                                        } else {
+
+                                            /*
+                                            // Replace the URL to go through the proxy
+                                            if(cur_license_key == "") {
+                                                var download_url = product_file.download_url;
+                                            } else {
+                                                var download_url = product_file.download_url + "&license=" + cur_license_key;
+                                            }
+                                            */
+
+                                           var download_url = product_file.download_url;
+
+                                            if(data.btn_show_mode == 0) {
+
+                                                if(product_file.added_method == "url") {
+                                                    tr_line.after("<tr><td style='padding-top: 5px;text-align:left;' colspan='6'><a class='btn btn-act-download' target='_blank' href='" + download_url + "' style='"+ download_btn_style +"'>" + data.btn_download_text + "</a></td></tr>");
+                                                } else {
+                                                    tr_line.after("<tr><td style='padding-top: 5px;text-align:left;' colspan='6'><a class='btn btn-act-download' download href='" + download_url + "' style='"+ download_btn_style +"'>" + data.btn_download_text + "</a></td></tr>");
+                                                }
+
+                                            } else if(data.btn_show_mode == 1) {
+
+                                                if(product_file.added_method == "url") {
+                                                    tr_line.after("<tr><td style='padding-top: 5px;text-align:left;' colspan='6'><a target='_blank' href='" + download_url + "' style='color: #197bbd !important; font-weight: 400;'>" + product_file.download_link + "</a></td></tr>");
+                                                } else {
+                                                    tr_line.after("<tr><td style='padding-top: 5px;text-align:left;' colspan='6'><a download href='" + download_url + "'>https://" + window.location.hostname + download_url + "</a></td></tr>");
+                                                }
+
+                                            }
+                                                
+                                        }
+
+                                    }
+
+                                })
+
+                            }
+
+                        }
+
+                    }, 
+                    error: function (xhr, ajaxOptions, thrownError) {
+
+                        $(".edp_loading_state").remove();
+
+                    }
+                });
+            
+                /*
+                // Do we find the section__content?
+                if($(".section__content").length) {
+
+                    if($(".section__content .content-box").length) {
+
+                        var content__box__download = '';
+
+                        content__box__download += '<div class="content-box">';
+                            content__box__download += '<div class="content-box__row text-container">';
+                                content__box__download += '<h2 class="heading-2 os-step__title" id="main-header" tabindex="-1">Download your File</h2>';
+                                content__box__download += '<div class="os-step__special-description">';
+                                    content__box__download += '<p class="os-step__description">';
+                                        content__box__download += 'Your file is ready to be downloaded below.';
+                                    content__box__download += '</p>';
+                                content__box__download += '</div>';
+                            content__box__download += '</div>';
+                        content__box__download += '</div>';
+
+                        $(".section__content .content-box:first-child").after(content__box__download);
+
+                    }
+
+                }
+                */
+
+            }
+
+            function validURL(url) {
+                return /^(https?|s?ftp):\/\/(((([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:)*@)?(((\d|[1-9]\d|1\d\d|2[0-4]\d|25[0-5])\.(\d|[1-9]\d|1\d\d|2[0-4]\d|25[0-5])\.(\d|[1-9]\d|1\d\d|2[0-4]\d|25[0-5])\.(\d|[1-9]\d|1\d\d|2[0-4]\d|25[0-5]))|((([a-z]|\d|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(([a-z]|\d|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])*([a-z]|\d|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])))\.)+(([a-z]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(([a-z]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])*([a-z]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])))\.?)(:\d*)?)(\/((([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:|@)+(\/(([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:|@)*)*)?)?(\?((([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:|@)|[\uE000-\uF8FF]|\/|\?)*)?(#((([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!\$&'\(\)\*\+,;=]|:|@)|\/|\?)*)?$/i.test(url);
+            }
+
+        });
+		        
+    };
+
+    /* If jQuery has not yet been loaded or if it has but it's too old for our needs,
+    we will load jQuery from the Google CDN, and when it's fully loaded, we will run
+    our app's JavaScript. Set your own limits here, the sample's code below uses 1.7
+    as the minimum version we are ready to use, and if the jQuery is older, we load 1.9. */
+    if ((typeof jQuery === 'undefined') || (parseFloat(jQuery.fn.jquery) < 1.7)) {
+        loadScript('//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js', function() {
+            jQuery191 = jQuery.noConflict(true);
+            myAppJavaScript(jQuery191);
+        });
+    } else {
+        myAppJavaScript(jQuery);
+    }
+
+})();
