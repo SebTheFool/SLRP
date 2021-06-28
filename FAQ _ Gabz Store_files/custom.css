@@ -1,0 +1,101 @@
+/* Place any CSS overrides in this file. */
+
+.socials-links-bar {
+  color: #fff !important;
+}
+
+.socials-links-bar:hover {
+	color: #01e7b9 !important;
+}
+
+.featured-sale-badge {
+ 	height: 42px !important; 
+ 	display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 12px;
+}
+
+.featured-product-description {
+ 	margin-top: 15px; 
+}
+
+.featured-video-button {
+	background-color: #fff !important;
+  	color: #000 !important;
+  	box-shadow: 1px 5px 5px black !important;
+  	font-weight: bold !important;
+}
+
+.featured-video-button:hover {
+	background-color: #01e7b9 !important;
+}
+
+.discord-logo {
+  height: 30px;
+  width: 30px;
+	filter: invert(100%) sepia(0%) saturate(11%) hue-rotate(191deg) brightness(102%) contrast(105%);
+}
+
+.socials-links-bar:hover .discord-logo {
+	filter: invert(64%) sepia(53%) saturate(2351%) hue-rotate(122deg) brightness(104%) contrast(102%);
+} 
+
+.homepage-sections--title {
+  	color:#000 !important;
+}
+
+.custom-footer-links:hover {
+	color: #01e7b9 !important;
+}
+
+.discord-socials-logo {
+ width: 28px;
+	filter: invert(100%) sepia(0%) saturate(11%) hue-rotate(191deg) brightness(102%) contrast(105%);
+}
+
+.custom-footer-links:hover .discord-socials-logo {
+  filter: invert(64%) sepia(53%) saturate(2351%) hue-rotate(122deg) brightness(104%) contrast(102%);
+}
+
+.custom-collection-title {
+	font-weight: bold;
+  	text-transform: uppercase;
+}
+
+.product-recommendations {
+	background-color: #E8E8E8;
+  margin-top: 15px;
+}
+
+.spr-container {
+	display: none;
+}
+
+.toto {
+    width: 75%;
+    height: 70vh;
+    background: url(https://cdn.discordapp.com/attachments/392713849813467156/771511464338391050/Sans_titre-2.png);
+    background-size: cover;
+    margin: auto;
+    margin-top: -140px;
+}
+
+.registration-custom-link {
+  color : #323232;
+}
+
+.registration-custom-link:hover {
+  text-decoration: underline;
+}
+
+.registration-discord-info {
+	height: 30px; 
+  	margin-left: 5px;
+}
+
+.registration-discord-info:hover {
+  filter: invert(64%) sepia(53%) saturate(2351%) hue-rotate(122deg) brightness(104%) contrast(102%);
+}
+
+
